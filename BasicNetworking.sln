@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30907.101
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Server", "Server\Server.csproj", "{0C445BC1-9625-4D9C-B8BA-7563FCD758DC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{8E41696B-B5DB-4B16-B5D1-86DF9634A1B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "shared", "shared\shared.csproj", "{FBBBF836-671D-4117-BC59-EEB605F2A96B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C445BC1-9625-4D9C-B8BA-7563FCD758DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C445BC1-9625-4D9C-B8BA-7563FCD758DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C445BC1-9625-4D9C-B8BA-7563FCD758DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C445BC1-9625-4D9C-B8BA-7563FCD758DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E41696B-B5DB-4B16-B5D1-86DF9634A1B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E41696B-B5DB-4B16-B5D1-86DF9634A1B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E41696B-B5DB-4B16-B5D1-86DF9634A1B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E41696B-B5DB-4B16-B5D1-86DF9634A1B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBBBF836-671D-4117-BC59-EEB605F2A96B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBBBF836-671D-4117-BC59-EEB605F2A96B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBBBF836-671D-4117-BC59-EEB605F2A96B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBBBF836-671D-4117-BC59-EEB605F2A96B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0A7C25CF-3C87-47E8-BCF0-972CE446EAC6}
+	EndGlobalSection
+EndGlobal
