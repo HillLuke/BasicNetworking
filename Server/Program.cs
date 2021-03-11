@@ -12,8 +12,8 @@ namespace Server
     class Program
     {
 
-        static List<TcpClient> _clients = new List<TcpClient>();
         static readonly object _lock = new object();
+        static readonly Dictionary<int, TcpClient> _clients = new Dictionary<int, TcpClient>();
 
         static void Main(string[] args)
         {
@@ -35,12 +35,13 @@ namespace Server
             listener.BeginAcceptTcpClient(new AsyncCallback(acceptTCP), listener);
 
             TcpClient client = listener.EndAcceptTcpClient(asyncResult);
-            _clients.Add(client);
+            int id = _clients.Count;
+            _clients.Add(id, client);
 
             Thread thread = new Thread(handler);
-            thread.Start(_clients.Count-1);
+            thread.Start(id);
 
-            Console.WriteLine($"Incoming connection from {client.Client.RemoteEndPoint}...");
+            Console.WriteLine($"Connection from {client.Client.RemoteEndPoint}...");
         }
 
         private static void handler(object o)
@@ -62,24 +63,30 @@ namespace Server
                 }
 
                 string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
-                broadcast(data);
+                broadcastToAllButSender(data, id);
                 Console.WriteLine(data);
             }
 
-            lock (_lock) _clients.RemoveAt(id);
+            lock (_lock) _clients.Remove(id);
             client.Client.Shutdown(SocketShutdown.Both);
             client.Close();
         }
 
-        public static void broadcast(string data)
+        public static void broadcastToAllButSender(string data, int id)
         {
             byte[] buffer = Encoding.ASCII.GetBytes(data + Environment.NewLine);
 
             lock (_lock)
             {
-                foreach (TcpClient c in _clients)
+                foreach (KeyValuePair<int, TcpClient> c in _clients)
                 {
-                    NetworkStream stream = c.GetStream();
+                    if (c.Key == id)
+                    {
+                        //Dont echo to the sender
+                        continue;
+                    }
+
+                    NetworkStream stream = c.Value.GetStream();
 
                     stream.Write(buffer, 0, buffer.Length);
                 }
