@@ -51,20 +51,32 @@ namespace Server
 
             lock (_lock) client = _clients[id];
 
-            while (true)
+            try
             {
-                NetworkStream stream = client.GetStream();
-                byte[] buffer = new byte[1024];
-                int byte_count = stream.Read(buffer, 0, buffer.Length);
-
-                if (byte_count == 0)
+                while (true)
                 {
-                    break;
-                }
+                    if (!client.Connected)
+                    {
+                        break;
+                    }
 
-                string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
-                broadcastToAllButSender(data, id);
-                Console.WriteLine(data);
+                    NetworkStream stream = client.GetStream();
+                    byte[] buffer = new byte[1024];
+                    int byte_count = stream.Read(buffer, 0, buffer.Length);
+
+                    if (byte_count == 0)
+                    {
+                        break;
+                    }
+
+                    string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
+                    broadcastToAllButSender(data, id);
+                    Console.WriteLine(data);
+                }
+            }
+            catch (Exception)
+            {
+                //TODO
             }
 
             lock (_lock) _clients.Remove(id);
