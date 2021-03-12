@@ -41,7 +41,7 @@ namespace Server
             Thread thread = new Thread(handler);
             thread.Start(id);
 
-            Console.WriteLine($"Connection from {client.Client.RemoteEndPoint}...");
+            Console.WriteLine($"Connection from {client.Client.RemoteEndPoint}");
         }
 
         private static void handler(object o)
@@ -57,6 +57,7 @@ namespace Server
                 {
                     if (!client.Connected)
                     {
+                        Console.WriteLine($"Disconnect {client.Client.RemoteEndPoint}");
                         break;
                     }
 
@@ -76,12 +77,16 @@ namespace Server
             }
             catch (Exception)
             {
-                //TODO
+                if (!client.Connected)
+                {
+                    Console.WriteLine($"Disconnect {client.Client.RemoteEndPoint}");
+                }
             }
 
             lock (_lock) _clients.Remove(id);
             client.Client.Shutdown(SocketShutdown.Both);
             client.Close();
+            broadcastToAllButSender("User disconnected", id);
         }
 
         public static void broadcastToAllButSender(string data, int id)
