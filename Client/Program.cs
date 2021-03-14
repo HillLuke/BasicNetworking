@@ -16,7 +16,7 @@ namespace Client
         static string _username;
         static int _port;
         static bool _isConnected;
-        static List<string> _messageQueue = new List<string>();
+        static Queue<string> _messageQueue = new Queue<string>();
 
         static Thread _recieveData;
         static Thread _sendData;
@@ -108,14 +108,14 @@ namespace Client
             {
                 if (_messageQueue.Count > 0)
                 {
-                    string message = _messageQueue[0];
+                    string message = _messageQueue.Peek();
 
                     byte[] buffer = Encoding.ASCII.GetBytes($"{_username} : {message}");
                     ns.Write(buffer, 0, buffer.Length);
 
                     lock (_messageQueueLock)
                     {
-                        _messageQueue.RemoveAt(0);
+                        _messageQueue.Dequeue();
                     }
                 }
             }
@@ -140,7 +140,7 @@ namespace Client
                 {
                     lock (_messageQueueLock)
                     {
-                        _messageQueue.Add(input);
+                        _messageQueue.Enqueue(input);
                     }
                 }
             }
