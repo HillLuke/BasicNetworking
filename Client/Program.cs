@@ -4,6 +4,7 @@ using System.Text;
 using System.Net.Sockets;
 using System.Threading;
 using System.Collections.Generic;
+using shared;
 
 namespace Client
 {
@@ -107,10 +108,20 @@ namespace Client
             {
                 if (_messageQueue.Count > 0)
                 {
-                    string message = _messageQueue.Peek();
+                    IPacket packet = new MessagePacket
+                    {
+                        Message = _messageQueue.Peek(),
+                        From = _username
+                    };                                        
 
-                    byte[] buffer = Encoding.ASCII.GetBytes($"{_username} : {message}");
-                    ns.Write(buffer, 0, buffer.Length);
+                    byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
+                    byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
+
+                    byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
+                    lengthBuffer.CopyTo(packetBuffer, 0);
+                    jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
+
+                    ns.Write(packetBuffer, 0, packetBuffer.Length);
 
                     lock (_messageQueueLock)
                     {

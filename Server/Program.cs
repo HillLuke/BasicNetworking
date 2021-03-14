@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using shared;
 
 namespace Server
 {
@@ -80,11 +81,16 @@ namespace Server
 
                     if (client.Available > 0)
                     {
-                        byte[] buffer = new byte[1024];
-                        int byte_count = stream.Read(buffer, 0, buffer.Length);
-                        string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
-                        BroadcastToAllButSender(data, id);
-                        Console.WriteLine(data);
+
+                        byte[] lengthBuffer = new byte[2];
+                        stream.Read(lengthBuffer, 0, 2);
+                        ushort packetByteSize = BitConverter.ToUInt16(lengthBuffer, 0);
+
+                        byte[] jsonBuffer = new byte[packetByteSize];
+                        stream.Read(jsonBuffer, 0, jsonBuffer.Length);
+
+                        string jsonString = Encoding.UTF8.GetString(jsonBuffer);
+                        IPacket packet = packet = Packet.Deserialize(jsonString);
                     }
                 }
             }
