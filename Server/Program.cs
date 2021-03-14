@@ -23,22 +23,22 @@ namespace Server
             TcpListener server = new TcpListener(localAddress, 8001);
 
             server.Start();
-            server.BeginAcceptTcpClient(new AsyncCallback(acceptTCP), server);
+            server.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), server);
 
             Console.WriteLine("Server started");
             Console.Read();
         }
 
-        private static void acceptTCP(IAsyncResult asyncResult)
+        private static void AcceptTCP(IAsyncResult asyncResult)
         {
             TcpListener listener = (TcpListener)asyncResult.AsyncState;
-            listener.BeginAcceptTcpClient(new AsyncCallback(acceptTCP), listener);
+            listener.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), listener);
 
             TcpClient client = listener.EndAcceptTcpClient(asyncResult);
             int id = _clients.Count;
             _clients.Add(id, client);
 
-            Thread thread = new Thread(handler);
+            Thread thread = new Thread(Handler);
             thread.Start(id);
 
             Console.WriteLine($"Connection from {client.Client.RemoteEndPoint}");
@@ -56,7 +56,7 @@ namespace Server
             }
         }
 
-        private static void handler(object o)
+        private static void Handler(object o)
         {
             int id = (int)o;
             TcpClient client;
@@ -72,7 +72,7 @@ namespace Server
                         lock (_lock) _clients.Remove(id);
                         client.Client.Shutdown(SocketShutdown.Both);
                         client.Close();
-                        broadcastToAllButSender("User disconnected", id);
+                        BroadcastToAllButSender("User disconnected", id);
                         Console.WriteLine($"Disconnected {id}");
                         break;
                     }
@@ -84,7 +84,7 @@ namespace Server
                         byte[] buffer = new byte[1024];
                         int byte_count = stream.Read(buffer, 0, buffer.Length);
                         string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
-                        broadcastToAllButSender(data, id);
+                        BroadcastToAllButSender(data, id);
                         Console.WriteLine(data);
                     }
                 }
@@ -96,13 +96,13 @@ namespace Server
                     lock (_lock) _clients.Remove(id);
                     client.Client.Shutdown(SocketShutdown.Both);
                     client.Close();
-                    broadcastToAllButSender("User disconnected", id);
+                    BroadcastToAllButSender("User disconnected", id);
                     Console.WriteLine($"Err Disconnected {id}");
                 }
             }
         }
 
-        public static void broadcastToAllButSender(string data, int id)
+        public static void BroadcastToAllButSender(string data, int id)
         {
             byte[] buffer = Encoding.ASCII.GetBytes(data + Environment.NewLine);
 
