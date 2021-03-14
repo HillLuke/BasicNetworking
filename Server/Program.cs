@@ -62,6 +62,7 @@ namespace Server
             TcpClient client;
 
             lock (_lock) client = _clients[id];
+            NetworkStream stream = client.GetStream();
 
             try
             {
@@ -76,8 +77,6 @@ namespace Server
                         Console.WriteLine($"Disconnected {id}");
                         break;
                     }
-
-                    NetworkStream stream = client.GetStream();
 
                     if (client.Available > 0)
                     {
