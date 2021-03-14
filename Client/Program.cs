@@ -66,13 +66,12 @@ namespace Client
         static void Close()
         {
             _isConnected = false;
-            _client.Client.Shutdown(SocketShutdown.Send);
             _recieveData.Interrupt();
             _sendData.Interrupt();
             _handleInput.Interrupt();
             _client.Close();
-            Console.WriteLine("Disconnected from server.");
-            Console.ReadLine();
+            Console.WriteLine("Disconnected from server, press any key to exit.");
+            Console.ReadKey();
         }
 
         static void spam(NetworkStream stream)

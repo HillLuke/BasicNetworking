@@ -44,6 +44,18 @@ namespace Server
             Console.WriteLine($"Connection from {client.Client.RemoteEndPoint}");
         }
 
+        private static bool IsDisconnected(TcpClient tcpClient)
+        {
+            try
+            {                
+                return tcpClient.Client.Poll(10 * 1000, SelectMode.SelectRead) && (tcpClient.Client.Available == 0);
+            }
+            catch (SocketException se)
+            {
+                return true;
+            }
+        }
+
         private static void handler(object o)
         {
             int id = (int)o;
@@ -55,38 +67,39 @@ namespace Server
             {
                 while (true)
                 {
-                    if (!client.Connected)
+                    if (IsDisconnected(client))
                     {
-                        Console.WriteLine($"Disconnect {client.Client.RemoteEndPoint}");
+                        lock (_lock) _clients.Remove(id);
+                        client.Client.Shutdown(SocketShutdown.Both);
+                        client.Close();
+                        broadcastToAllButSender("User disconnected", id);
+                        Console.WriteLine($"Disconnected {id}");
                         break;
                     }
 
                     NetworkStream stream = client.GetStream();
-                    byte[] buffer = new byte[1024];
-                    int byte_count = stream.Read(buffer, 0, buffer.Length);
 
-                    if (byte_count == 0)
+                    if (client.Available > 0)
                     {
-                        break;
+                        byte[] buffer = new byte[1024];
+                        int byte_count = stream.Read(buffer, 0, buffer.Length);
+                        string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
+                        broadcastToAllButSender(data, id);
+                        Console.WriteLine(data);
                     }
-
-                    string data = Encoding.ASCII.GetString(buffer, 0, byte_count);
-                    broadcastToAllButSender(data, id);
-                    Console.WriteLine(data);
                 }
             }
             catch (Exception)
             {
                 if (!client.Connected)
                 {
-                    Console.WriteLine($"Disconnect {client.Client.RemoteEndPoint}");
+                    lock (_lock) _clients.Remove(id);
+                    client.Client.Shutdown(SocketShutdown.Both);
+                    client.Close();
+                    broadcastToAllButSender("User disconnected", id);
+                    Console.WriteLine($"Err Disconnected {id}");
                 }
             }
-
-            lock (_lock) _clients.Remove(id);
-            client.Client.Shutdown(SocketShutdown.Both);
-            client.Close();
-            broadcastToAllButSender("User disconnected", id);
         }
 
         public static void broadcastToAllButSender(string data, int id)
