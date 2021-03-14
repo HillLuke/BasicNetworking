@@ -3,10 +3,10 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using shared;
+using System.Threading.Tasks;
 
 namespace Server
 {
@@ -15,6 +15,7 @@ namespace Server
 
         static readonly object _lock = new object();
         static readonly Dictionary<int, TcpClient> _clients = new Dictionary<int, TcpClient>();
+        static Dictionary<ECommand, Func<IPacket, int, Task>> _commandHandlers = new Dictionary<ECommand, Func<IPacket, int, Task>>(); // TODO - delegates?
 
         static void Main(string[] args)
         {
@@ -22,6 +23,8 @@ namespace Server
 
             IPAddress localAddress = IPAddress.Parse("127.0.0.1");
             TcpListener server = new TcpListener(localAddress, 8001);
+
+            _commandHandlers[ECommand.Message] = HandleMessage;
 
             server.Start();
             server.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), server);
@@ -57,7 +60,7 @@ namespace Server
             }
         }
 
-        private static void Handler(object o)
+        private static async void Handler(object o)
         {
             int id = (int)o;
             TcpClient client;
@@ -74,14 +77,13 @@ namespace Server
                         lock (_lock) _clients.Remove(id);
                         client.Client.Shutdown(SocketShutdown.Both);
                         client.Close();
-                        BroadcastToAllButSender("User disconnected", id);
+                        //BroadcastToAllButSender("User disconnected", id); disconnect packet
                         Console.WriteLine($"Disconnected {id}");
                         break;
                     }
 
                     if (client.Available > 0)
                     {
-
                         byte[] lengthBuffer = new byte[2];
                         stream.Read(lengthBuffer, 0, 2);
                         ushort packetByteSize = BitConverter.ToUInt16(lengthBuffer, 0);
@@ -90,7 +92,9 @@ namespace Server
                         stream.Read(jsonBuffer, 0, jsonBuffer.Length);
 
                         string jsonString = Encoding.UTF8.GetString(jsonBuffer);
-                        IPacket packet = packet = Packet.Deserialize(jsonString);
+                        IPacket packet = Packet.Deserialize(jsonString);
+
+                        await _commandHandlers[packet.Command](packet, id);
                     }
                 }
             }
@@ -101,16 +105,20 @@ namespace Server
                     lock (_lock) _clients.Remove(id);
                     client.Client.Shutdown(SocketShutdown.Both);
                     client.Close();
-                    BroadcastToAllButSender("User disconnected", id);
+                    //BroadcastToAllButSender("User disconnected", id); disconnect packet
                     Console.WriteLine($"Err Disconnected {id}");
                 }
             }
         }
 
-        public static void BroadcastToAllButSender(string data, int id)
+        public static Task HandleMessage(IPacket packet, int id)
         {
-            byte[] buffer = Encoding.ASCII.GetBytes(data + Environment.NewLine);
+            BroadcastToAllButSender(packet, id);
+            return Task.CompletedTask;
+        }
 
+        public static void BroadcastToAllButSender(IPacket packet, int id)
+        {
             lock (_lock)
             {
                 foreach (KeyValuePair<int, TcpClient> c in _clients)
@@ -123,7 +131,14 @@ namespace Server
 
                     NetworkStream stream = c.Value.GetStream();
 
-                    stream.Write(buffer, 0, buffer.Length);
+                    byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
+                    byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
+
+                    byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
+                    lengthBuffer.CopyTo(packetBuffer, 0);
+                    jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
+
+                    stream.Write(packetBuffer, 0, packetBuffer.Length);
                 }
             }
         }

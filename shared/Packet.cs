@@ -4,7 +4,7 @@ namespace shared
 {
     public class Packet : IPacket
     {
-        protected ECommand Command { get; set; }
+        public ECommand Command { get; set; }
 
         public string Serialize()
         {

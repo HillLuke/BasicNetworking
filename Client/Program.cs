@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Collections.Generic;
 using shared;
+using System.Threading.Tasks;
 
 namespace Client
 {
@@ -18,11 +19,11 @@ namespace Client
         static int _port;
         static bool _isConnected;
         static Queue<string> _messageQueue = new Queue<string>();
+        static Dictionary<ECommand, Func<IPacket, Task>> _commandHandlers = new Dictionary<ECommand, Func<IPacket, Task>>();
 
         static Thread _recieveData;
         static Thread _sendData;
         static Thread _handleInput;
-
 
         static readonly object _messageQueueLock = new object();
 
@@ -42,6 +43,9 @@ namespace Client
             {
                 _client.Connect(_ip, _port);
                 _isConnected = true;
+
+                _commandHandlers[ECommand.Message] = HandleMessage;
+
                 Console.WriteLine($"Connected as {_ID}");
             }
             catch (Exception)
@@ -75,34 +79,39 @@ namespace Client
             Console.ReadKey();
         }
 
-        static void spam(NetworkStream stream)
+        static async void ReceiveData()
         {
-            while (_isConnected)
-            {
-                byte[] buffer = Encoding.ASCII.GetBytes($"Hello from {_username}");
-                stream.Write(buffer, 0, buffer.Length);
-                Thread.Sleep(500);
-            }
-        }
-
-        static void ReceiveData()
-        {
-            NetworkStream ns = _client.GetStream();
-            byte[] receivedBytes = new byte[1024];
-            int byte_count;
+            NetworkStream stream = _client.GetStream();
 
             while (_isConnected)
             {
-                while ((byte_count = ns.Read(receivedBytes, 0, receivedBytes.Length)) > 0)
+                try
                 {
-                    Console.Write(Encoding.ASCII.GetString(receivedBytes, 0, byte_count));
+                    if (_client.Available > 0)
+                    {
+                        byte[] lengthBuffer = new byte[2];
+                        stream.Read(lengthBuffer, 0, 2);
+                        ushort packetByteSize = BitConverter.ToUInt16(lengthBuffer, 0);
+
+                        byte[] jsonBuffer = new byte[packetByteSize];
+                        stream.Read(jsonBuffer, 0, jsonBuffer.Length);
+
+                        string jsonString = Encoding.UTF8.GetString(jsonBuffer);
+                        IPacket packet = Packet.Deserialize(jsonString);
+
+                        await _commandHandlers[packet.Command](packet);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw;
                 }
             }
         }
 
         static void SendData()
         {
-            NetworkStream ns = _client.GetStream();
+            NetworkStream stream = _client.GetStream();
 
             while (_isConnected)
             {
@@ -121,7 +130,7 @@ namespace Client
                     lengthBuffer.CopyTo(packetBuffer, 0);
                     jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
 
-                    ns.Write(packetBuffer, 0, packetBuffer.Length);
+                    stream.Write(packetBuffer, 0, packetBuffer.Length);
 
                     lock (_messageQueueLock)
                     {
@@ -154,6 +163,12 @@ namespace Client
                     }
                 }
             }
+        }
+
+        public static Task HandleMessage(IPacket packet)
+        {
+            Console.WriteLine($"{((MessagePacket)packet).From} : {((MessagePacket)packet).Message}");
+            return Task.CompletedTask;
         }
     }
 }
