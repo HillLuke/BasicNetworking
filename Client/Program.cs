@@ -50,11 +50,11 @@ namespace Client
                 return;
             }
 
-            _recieveData = new Thread(o => ReceiveData((TcpClient)o));
+            _recieveData = new Thread(o => ReceiveData());
             _recieveData.Start(_client);
-            _sendData = new Thread(o => SendData((TcpClient)o));
+            _sendData = new Thread(o => SendData());
             _sendData.Start(_client);
-            _handleInput = new Thread(o => HandleInput((TcpClient)o));
+            _handleInput = new Thread(o => HandleInput());
             _handleInput.Start(_client);
         }
 
@@ -84,9 +84,9 @@ namespace Client
             }
         }
 
-        static void ReceiveData(TcpClient client)
+        static void ReceiveData()
         {
-            NetworkStream ns = client.GetStream();
+            NetworkStream ns = _client.GetStream();
             byte[] receivedBytes = new byte[1024];
             int byte_count;
 
@@ -99,9 +99,9 @@ namespace Client
             }
         }
 
-        static void SendData(TcpClient client)
+        static void SendData()
         {
-            NetworkStream ns = client.GetStream();
+            NetworkStream ns = _client.GetStream();
 
             while (_isConnected)
             {
@@ -120,7 +120,7 @@ namespace Client
             }
         }
 
-        static void HandleInput(TcpClient client)
+        static void HandleInput()
         {
             while (_isConnected)
             {
