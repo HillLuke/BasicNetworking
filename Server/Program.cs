@@ -27,6 +27,7 @@ namespace Server
             _commandHandlers[ECommand.Joined] = RecieveUserJoined;
             _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
             _commandHandlers[ECommand.AllConnectedUsers] = RecieveAllConnectedUsers;
+            _commandHandlers[ECommand.PM] = RecievePMPacket;
 
             server.Start();
             server.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), server);
@@ -191,6 +192,18 @@ namespace Server
             };
 
             Send(returnPacket, _clients.Single(x => x.Key == id).Value.TcpClient);
+
+            return Task.CompletedTask;
+        }
+
+        public static Task RecievePMPacket(IPacket packet, int id)
+        {
+            string to = ((PMPacket)packet).To;
+
+            lock (_lock)
+            {
+                Send(packet, _clients.Single(x => x.Value.Username.Equals(to)).Value.TcpClient);
+            }
 
             return Task.CompletedTask;
         }

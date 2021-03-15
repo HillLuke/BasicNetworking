@@ -6,6 +6,7 @@ using System.Threading;
 using System.Collections.Generic;
 using shared;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Client
 {
@@ -48,6 +49,7 @@ namespace Client
                 _commandHandlers[ECommand.Joined] = RecieveUserJoined;
                 _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
                 _commandHandlers[ECommand.AllConnectedUsers] = RecieveAllConnectedUsers;
+                _commandHandlers[ECommand.PM] = RecievePMPacket;
 
                 SendUserJoined();
 
@@ -152,10 +154,17 @@ namespace Client
                 if (input.Equals("/commands"))
                 {
                     Console.WriteLine("/online - gets usernames of all connected users");
+                    Console.WriteLine("/pm <username> <message> - sends message to username only");
                 }
                 else if (input.Equals("/online"))
                 {
                     SendAllConnectedUsers();
+                }
+                else if (input.StartsWith("/pm"))
+                {
+                    var regex = new Regex(@"(pm*)\s(\S*)\s(.*)");
+                    var match = regex.Match(input);
+                    SendPMPacket(match.Groups[2].Value, match.Groups[3].Value);
                 }
                 else
                 {
@@ -204,6 +213,16 @@ namespace Client
             Send(new AllConnectedUsersPacket());
         }
 
+        public static void SendPMPacket(string to, string message)
+        {
+            Send(new PMPacket
+            {
+                From = _username,
+                Message = message,
+                To = to
+            });
+        }
+
         #endregion
 
         #region Recieve
@@ -234,6 +253,16 @@ namespace Client
                 Console.WriteLine($" {username}");
             }
 
+            return Task.CompletedTask;
+        }
+
+        public static Task RecievePMPacket(IPacket packet)
+        {
+            Console.ForegroundColor
+            = ConsoleColor.Yellow;
+            Console.WriteLine($"{((PMPacket)packet).From} : {((PMPacket)packet).Message}", Console.ForegroundColor);
+            Console.ForegroundColor
+            = ConsoleColor.White;
             return Task.CompletedTask;
         }
 
