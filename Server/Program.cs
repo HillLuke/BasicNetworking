@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
@@ -12,9 +11,8 @@ namespace Server
 {
     class Program
     {
-
         static readonly object _lock = new object();
-        static readonly Dictionary<int, TcpClient> _clients = new Dictionary<int, TcpClient>();
+        static readonly Dictionary<int, Client> _clients = new Dictionary<int, Client>();
         static Dictionary<ECommand, Func<IPacket, int, Task>> _commandHandlers = new Dictionary<ECommand, Func<IPacket, int, Task>>(); // TODO - delegates?
 
         static void Main(string[] args)
@@ -24,7 +22,9 @@ namespace Server
             IPAddress localAddress = IPAddress.Parse("127.0.0.1");
             TcpListener server = new TcpListener(localAddress, 8001);
 
-            _commandHandlers[ECommand.Message] = HandleMessage;
+            _commandHandlers[ECommand.Message] = RecieveMessage;
+            _commandHandlers[ECommand.Joined] = RecieveUserJoined;
+            _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
 
             server.Start();
             server.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), server);
@@ -40,7 +40,11 @@ namespace Server
 
             TcpClient client = listener.EndAcceptTcpClient(asyncResult);
             int id = _clients.Count;
-            _clients.Add(id, client);
+            _clients.Add(id, new Client
+            {
+                ID = id,
+                TcpClient = client
+            });
 
             Thread thread = new Thread(Handler);
             thread.Start(id);
@@ -51,7 +55,7 @@ namespace Server
         private static bool IsDisconnected(TcpClient tcpClient)
         {
             try
-            {                
+            {
                 return tcpClient.Client.Poll(10 * 1000, SelectMode.SelectRead) && (tcpClient.Client.Available == 0);
             }
             catch (SocketException se)
@@ -65,7 +69,7 @@ namespace Server
             int id = (int)o;
             TcpClient client;
 
-            lock (_lock) client = _clients[id];
+            lock (_lock) client = _clients[id].TcpClient;
             NetworkStream stream = client.GetStream();
 
             try
@@ -74,11 +78,7 @@ namespace Server
                 {
                     if (IsDisconnected(client))
                     {
-                        lock (_lock) _clients.Remove(id);
-                        client.Client.Shutdown(SocketShutdown.Both);
-                        client.Close();
-                        //BroadcastToAllButSender("User disconnected", id); disconnect packet
-                        Console.WriteLine($"Disconnected {id}");
+                        DisconnectClient(id);
                         break;
                     }
 
@@ -102,26 +102,29 @@ namespace Server
             {
                 if (!client.Connected)
                 {
-                    lock (_lock) _clients.Remove(id);
-                    client.Client.Shutdown(SocketShutdown.Both);
-                    client.Close();
-                    //BroadcastToAllButSender("User disconnected", id); disconnect packet
-                    Console.WriteLine($"Err Disconnected {id}");
+                    DisconnectClient(id);
                 }
             }
         }
 
-        public static Task HandleMessage(IPacket packet, int id)
+        public static void DisconnectClient(int id)
         {
-            BroadcastToAllButSender(packet, id);
-            return Task.CompletedTask;
+            lock (_lock)
+            {
+                _clients[id].TcpClient.Client.Shutdown(SocketShutdown.Both);
+                _clients[id].TcpClient.Close();
+                BroadcastToAllButSender(new DisconnectedPacket { Username = _clients[id].Username }, id);
+                _clients.Remove(id);
+            }
+
+            Console.WriteLine($"Disconnected {id}");
         }
 
         public static void BroadcastToAllButSender(IPacket packet, int id)
         {
             lock (_lock)
             {
-                foreach (KeyValuePair<int, TcpClient> c in _clients)
+                foreach (KeyValuePair<int, Client> c in _clients)
                 {
                     if (c.Key == id)
                     {
@@ -129,18 +132,55 @@ namespace Server
                         continue;
                     }
 
-                    NetworkStream stream = c.Value.GetStream();
-
-                    byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
-                    byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
-
-                    byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
-                    lengthBuffer.CopyTo(packetBuffer, 0);
-                    jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
-
-                    stream.Write(packetBuffer, 0, packetBuffer.Length);
+                    Send(packet, c.Value.TcpClient);
                 }
             }
         }
+
+        static void Send(IPacket packet, TcpClient tcpClient)
+        {
+            NetworkStream stream = tcpClient.GetStream();
+
+            byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
+            byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
+
+            byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
+            lengthBuffer.CopyTo(packetBuffer, 0);
+            jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
+
+            stream.Write(packetBuffer, 0, packetBuffer.Length);
+        }
+
+        #region Recieve
+
+        public static Task RecieveMessage(IPacket packet, int id)
+        {
+            BroadcastToAllButSender(packet, id);
+            return Task.CompletedTask;
+        }
+
+        public static Task RecieveUserJoined(IPacket packet, int id)
+        {
+            lock (_lock)
+            {
+                _clients[id].Username = ((JoinedPacket)packet).Username;
+            }
+
+            BroadcastToAllButSender(packet, id);
+            return Task.CompletedTask;
+        }
+
+        public static Task RecieveUserDisconnected(IPacket packet, int id)
+        {
+            lock (_lock)
+            {
+                _clients.Remove(id);
+            }
+
+            BroadcastToAllButSender(packet, id);
+            return Task.CompletedTask;
+        }
+
+        #endregion
     }
 }

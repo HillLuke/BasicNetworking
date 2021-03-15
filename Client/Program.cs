@@ -44,7 +44,11 @@ namespace Client
                 _client.Connect(_ip, _port);
                 _isConnected = true;
 
-                _commandHandlers[ECommand.Message] = HandleMessage;
+                _commandHandlers[ECommand.Message] = RecieveMessage;
+                _commandHandlers[ECommand.Joined] = RecieveUserJoined;
+                _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
+
+                SendUserJoined();
 
                 Console.WriteLine($"Connected as {_ID}");
             }
@@ -111,7 +115,6 @@ namespace Client
 
         static void SendData()
         {
-            NetworkStream stream = _client.GetStream();
 
             while (_isConnected)
             {
@@ -121,16 +124,9 @@ namespace Client
                     {
                         Message = _messageQueue.Peek(),
                         From = _username
-                    };                                        
+                    };
 
-                    byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
-                    byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
-
-                    byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
-                    lengthBuffer.CopyTo(packetBuffer, 0);
-                    jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
-
-                    stream.Write(packetBuffer, 0, packetBuffer.Length);
+                    Send(packet);
 
                     lock (_messageQueueLock)
                     {
@@ -148,6 +144,7 @@ namespace Client
 
                 if (string.IsNullOrEmpty(input))
                 {
+                    SendUserDisconnected();
                     Close();
                 }
 
@@ -165,10 +162,60 @@ namespace Client
             }
         }
 
-        public static Task HandleMessage(IPacket packet)
+        static void Send(IPacket packet)
+        {
+            NetworkStream stream = _client.GetStream();
+
+            byte[] jsonBuffer = Encoding.UTF8.GetBytes(packet.Serialize());
+            byte[] lengthBuffer = BitConverter.GetBytes(Convert.ToUInt16(jsonBuffer.Length));
+
+            byte[] packetBuffer = new byte[lengthBuffer.Length + jsonBuffer.Length];
+            lengthBuffer.CopyTo(packetBuffer, 0);
+            jsonBuffer.CopyTo(packetBuffer, lengthBuffer.Length);
+
+            stream.Write(packetBuffer, 0, packetBuffer.Length);
+        }
+
+        #region Send
+
+        public static void SendUserJoined()
+        {
+            Send(new JoinedPacket
+            {
+                Username = _username
+            });
+        }
+
+        public static void SendUserDisconnected()
+        {
+            Send(new DisconnectedPacket
+            {
+                Username = _username
+            });
+        }
+
+        #endregion
+
+        #region Recieve
+
+        public static Task RecieveMessage(IPacket packet)
         {
             Console.WriteLine($"{((MessagePacket)packet).From} : {((MessagePacket)packet).Message}");
             return Task.CompletedTask;
         }
+
+        public static Task RecieveUserDisconnected(IPacket packet)
+        {
+            Console.WriteLine($"{((DisconnectedPacket)packet).Username} has left");
+            return Task.CompletedTask;
+        }
+
+        public static Task RecieveUserJoined(IPacket packet)
+        {
+            Console.WriteLine($"{((JoinedPacket)packet).Username} has joined");
+            return Task.CompletedTask;
+        }
+
+        #endregion
     }
 }

@@ -31,7 +31,8 @@ namespace shared
 
     public enum ECommand
     {
-        Echo,
-        Message
+        Message,
+        Disconnected,
+        Joined
     }
 }
