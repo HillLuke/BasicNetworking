@@ -47,6 +47,7 @@ namespace Client
                 _commandHandlers[ECommand.Message] = RecieveMessage;
                 _commandHandlers[ECommand.Joined] = RecieveUserJoined;
                 _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
+                _commandHandlers[ECommand.AllConnectedUsers] = RecieveAllConnectedUsers;
 
                 SendUserJoined();
 
@@ -150,7 +151,11 @@ namespace Client
 
                 if (input.Equals("/commands"))
                 {
-
+                    Console.WriteLine("/online - gets usernames of all connected users");
+                }
+                else if (input.Equals("/online"))
+                {
+                    SendAllConnectedUsers();
                 }
                 else
                 {
@@ -194,6 +199,11 @@ namespace Client
             });
         }
 
+        public static void SendAllConnectedUsers()
+        {
+            Send(new AllConnectedUsersPacket());
+        }
+
         #endregion
 
         #region Recieve
@@ -213,6 +223,17 @@ namespace Client
         public static Task RecieveUserJoined(IPacket packet)
         {
             Console.WriteLine($"{((JoinedPacket)packet).Username} has joined");
+            return Task.CompletedTask;
+        }
+
+        public static Task RecieveAllConnectedUsers(IPacket packet)
+        {
+            Console.WriteLine("Connected users:");
+            foreach (var username in ((AllConnectedUsersPacket)packet).Usernames)
+            {
+                Console.WriteLine($" {username}");
+            }
+
             return Task.CompletedTask;
         }
 

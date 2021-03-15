@@ -16,6 +16,7 @@ namespace shared
 
             return JsonConvert.SerializeObject(this, indented, settings);
         }
+
         public static IPacket Deserialize(string json)
         {
             // https://skrift.io/issues/bulletproof-interface-deserialization-in-jsonnet/
@@ -33,6 +34,8 @@ namespace shared
     {
         Message,
         Disconnected,
-        Joined
+        Joined,
+        PM,
+        AllConnectedUsers
     }
 }

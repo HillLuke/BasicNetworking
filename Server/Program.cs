@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using shared;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Server
 {
@@ -25,6 +26,7 @@ namespace Server
             _commandHandlers[ECommand.Message] = RecieveMessage;
             _commandHandlers[ECommand.Joined] = RecieveUserJoined;
             _commandHandlers[ECommand.Disconnected] = RecieveUserDisconnected;
+            _commandHandlers[ECommand.AllConnectedUsers] = RecieveAllConnectedUsers;
 
             server.Start();
             server.BeginAcceptTcpClient(new AsyncCallback(AcceptTCP), server);
@@ -178,6 +180,18 @@ namespace Server
             }
 
             BroadcastToAllButSender(packet, id);
+            return Task.CompletedTask;
+        }
+
+        public static Task RecieveAllConnectedUsers(IPacket packet, int id)
+        {
+            AllConnectedUsersPacket returnPacket = new AllConnectedUsersPacket
+            {
+                Usernames = _clients.Where(y => y.Key != id).Select(x => x.Value.Username).ToList()
+            };
+
+            Send(returnPacket, _clients.Single(x => x.Key == id).Value.TcpClient);
+
             return Task.CompletedTask;
         }
 

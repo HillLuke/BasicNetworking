@@ -2,7 +2,7 @@
 {
     public interface IPacket
     {
-        ECommand Command { get; }
+        ECommand Command { get; set; }
 
         public string Serialize();
     }
